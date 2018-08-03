@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Recorder</string>
+    <string name="title_record">Record</string>
+    <string name="title_listen">Listen</string>
+    <string name="title_settings">Settings</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+</resources>
