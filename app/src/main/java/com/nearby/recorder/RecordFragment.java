@@ -52,11 +52,11 @@ public class RecordFragment extends Fragment implements View.OnClickListener {
 
     private OnFragmentInteractionListener mListener;
 
-    ImageView imageView;
+    ImageView imageView, pauseView;
     MediaRecorder mediaRecorder;
     Chronometer chronometer;
     Timer timer = null;
-    int maxAmps = 0, minAmps = 100;
+    int maxAmps = 0;
     private LinearLayout mainLayout;
     private BarChart mChart;
     List<BarEntry> yVals = new ArrayList<>();
@@ -86,10 +86,17 @@ public class RecordFragment extends Fragment implements View.OnClickListener {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View v =  inflater.inflate(R.layout.fragment_record, container, false);
+        final View v =  inflater.inflate(R.layout.fragment_record, container, false);
         imageView =  v.findViewById(R.id.imageView);
         imageView.setOnClickListener(this);
-        audio_graph(v);
+        pauseView = v.findViewById(R.id.pause);
+        pauseView.setOnClickListener(this);
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                audio_graph(v);
+            }
+        });
         return v;
     }
     // TODO: Rename method, update argument and hook method into UI event
@@ -132,8 +139,6 @@ public class RecordFragment extends Fragment implements View.OnClickListener {
                         int amps = mediaRecorder.getMaxAmplitude();
                         if(amps > maxAmps)
                             maxAmps = amps;
-                        if(amps < minAmps)
-                            minAmps = amps;
                         addEntry(amps);
                     }
                     catch (Exception e) {
@@ -144,71 +149,95 @@ public class RecordFragment extends Fragment implements View.OnClickListener {
             return null;
         }
     }
-
+    long timeWhenStopped = 0;
     @Override
     public void onClick(View view) {
         switch(view.getId()) {
             case R.id.imageView:
                 if(imageView.getTag().toString().equals("1")) {
                     new AsyncTimer().execute();
+                    startRecording();
                 }
                 else if(imageView.getTag().toString().equals("2")){
-                    timer.cancel();
+                    stopRecording();
                 }
-                recordingHandler();
                 break;
+            case R.id.pause:
+                if(pauseView.getTag().toString().equals("1")) {
+                    //pause
+                    timer.cancel();
+                    mediaRecorder.pause();
+                    timeWhenStopped = chronometer.getBase() - SystemClock.elapsedRealtime();
+                    chronometer.stop();
+                    pauseView.setTag("2");
+                    pauseView.setImageResource(R.drawable.record);
+                }
+                else if(pauseView.getTag().toString().equals("2")){
+                    //restart
+                    pauseView.setTag("1");
+                    pauseView.setImageResource(R.drawable.pause);
+                    chronometer.setBase(SystemClock.elapsedRealtime() + timeWhenStopped);
+                    chronometer.start();
+                    new AsyncTimer().execute();
+                    mediaRecorder.resume();
+                }
+                break;
+
         }
     }
-    public void recordingHandler(){
-        if(imageView.getTag().toString().equals("1")) {
-            File audioFolder = new File(Environment.getExternalStorageDirectory().getAbsolutePath(),
-                    "My Recordings");
-            if (!audioFolder.exists()) {
-                audioFolder.mkdir();
-            }
-            String mFileName = Environment.getExternalStorageDirectory().getAbsolutePath() + "/My Recordings/";
-            String timeStamp = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss:ms").format(new Date());
-            mFileName +=  timeStamp +  ".mp3";
-            mediaRecorder = new MediaRecorder();
-            chronometer = getView().findViewById(R.id.chronometer);
-            chronometer.setBase(SystemClock.elapsedRealtime());
-            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-            mediaRecorder.setOutputFile(mFileName);
-            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-            mediaRecorder.setAudioChannels(1);
-            mediaRecorder.setAudioEncodingBitRate(320000);
-            mediaRecorder.setAudioSamplingRate(44100);
-            try {
-                mediaRecorder.prepare();
-                mediaRecorder.start();
-                chronometer.start();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            imageView.setTag("2");
-            imageView.setImageResource(R.drawable.stop);
+    public void startRecording(){
+        yVals.clear();
+        File audioFolder = new File(Environment.getExternalStorageDirectory().getAbsolutePath(),
+                "My Recordings");
+        if (!audioFolder.exists()) {
+            audioFolder.mkdir();
+        }
+        String mFileName = Environment.getExternalStorageDirectory().getAbsolutePath() + "/My Recordings/";
+        String timeStamp = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss:ms").format(new Date());
+        mFileName +=  timeStamp +  ".mp3";
+        mediaRecorder = new MediaRecorder();
+        chronometer = getView().findViewById(R.id.chronometer);
+        mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+        mediaRecorder.setOutputFile(mFileName);
+        mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+        mediaRecorder.setAudioChannels(1);
+        mediaRecorder.setAudioEncodingBitRate(320000);
+        mediaRecorder.setAudioSamplingRate(44100);
 
-        } else if(imageView.getTag().toString().equals("2")) {
-            imageView.setTag("1");
-            imageView.setImageResource(R.drawable.record);
+        mChart.clear();
+        mChart.setData(new BarData());
+        imageView.setTag("2");
+        imageView.setImageResource(R.drawable.stop);
+        chronometer.setBase(SystemClock.elapsedRealtime());
+        try {
+            mediaRecorder.prepare();
+            mediaRecorder.start();
+            chronometer.start();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void stopRecording(){
+        timer.cancel();
+        try {
             mediaRecorder.stop();
-            chronometer.stop();
-            mediaRecorder.reset();
-            mediaRecorder.release();
-            mediaRecorder = null;
-            yVals.clear();
-            mChart.clear();
-            mChart.setData(new BarData());
         }
-        chronometer.setOnChronometerTickListener(new Chronometer.OnChronometerTickListener(){
+        catch (Exception e) {
+            Log.d("Stop", "exception");
+        }
+        chronometer.stop();
+        mediaRecorder.reset();
+        mediaRecorder.release();
+        mediaRecorder = null;
 
-            @Override
-            public void onChronometerTick(Chronometer chronometer) {
-
-            }
-        });
+        imageView.setTag("1");
+        imageView.setImageResource(R.drawable.record);
+        pauseView.setTag("1");
+        pauseView.setImageResource(R.drawable.pause);
     }
+
     public void audio_graph(View v) {
         mainLayout = v.findViewById(R.id.mainLayout);
         mChart = new BarChart(getContext());
@@ -246,9 +275,7 @@ public class RecordFragment extends Fragment implements View.OnClickListener {
         YAxis y12= mChart.getAxisRight();
         y12.setEnabled(false);
 
-        BarData data = new BarData();
-        data.setValueTextColor(Color.WHITE);
-        mChart.setData(data);
+        mChart.setData(new BarData());
     }
 
     int x = 0;
