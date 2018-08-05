@@ -173,7 +173,7 @@ public class RecordFragment extends Fragment implements View.OnClickListener {
                     pauseView.setImageResource(R.drawable.record);
                 }
                 else if(pauseView.getTag().toString().equals("2")){
-                    //restart
+                    //resume
                     pauseView.setTag("1");
                     pauseView.setImageResource(R.drawable.pause);
                     chronometer.setBase(SystemClock.elapsedRealtime() + timeWhenStopped);
@@ -209,6 +209,7 @@ public class RecordFragment extends Fragment implements View.OnClickListener {
         mChart.setData(new BarData());
         imageView.setTag("2");
         imageView.setImageResource(R.drawable.stop);
+        pauseView.setVisibility(View.VISIBLE);
         chronometer.setBase(SystemClock.elapsedRealtime());
         try {
             mediaRecorder.prepare();
@@ -221,6 +222,7 @@ public class RecordFragment extends Fragment implements View.OnClickListener {
 
     public void stopRecording(){
         timer.cancel();
+        pauseView.setVisibility(View.INVISIBLE);
         try {
             mediaRecorder.stop();
         }

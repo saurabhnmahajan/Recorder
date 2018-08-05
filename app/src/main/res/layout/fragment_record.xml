@@ -38,7 +38,8 @@
             android:clickable="true"
             android:scaleType="fitCenter"
             android:src="@drawable/pause"
-            android:tag="1" />
+            android:tag="1"
+            android:visibility="invisible" />
     </LinearLayout>
 
 </FrameLayout>
